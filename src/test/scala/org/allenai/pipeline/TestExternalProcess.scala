@@ -76,7 +76,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   it should "pipe stdin to stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
     val wc = new ExternalProcess("wc", "-c")
-    val result = wc.run(Map(),stdinput = echo.run(Map()).stdout)
+    val result = wc.run(Map(), stdinput = echo.run(Map()).stdout)
     IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
   }
 }

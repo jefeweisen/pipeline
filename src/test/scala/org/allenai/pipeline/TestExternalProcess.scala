@@ -17,9 +17,9 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   import ExternalProcess._
 
   "ExecuteShellCommand" should "return status code" in {
-    val testTrue = new ExternalProcess("test", "a", "=", "a")
+    val testTrue = new ExternalProcess(List("test", "a", "=", "a"))
     testTrue.run().returnCode should equal(0)
-    val testFalse = new ExternalProcess("test", "a", "=", "b")
+    val testFalse = new ExternalProcess(List("test", "a", "=", "b"))
     testFalse.run().returnCode should equal(1)
   }
 
@@ -34,17 +34,17 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
 
   it should "capture stdout" in {
-    val echo = new ExternalProcess("echo", "hello", "world")
+    val echo = new ExternalProcess(List("echo", "hello", "world"))
     val stdout = IOUtils.readLines(echo.run().stdout()).asScala.mkString("\n")
     stdout should equal("hello world")
   }
   it should "capture stderr" in {
-    val noSuchParameter = new ExternalProcess("touch", "-x", "foo")
+    val noSuchParameter = new ExternalProcess(List("touch", "-x", "foo"))
     val stderr = IOUtils.readLines(noSuchParameter.run().stderr()).asScala.mkString("\n")
     stderr.size should be > 0
   }
   it should "throw an exception if command is not found" in {
-    val noSuchCommand = new ExternalProcess("eccho", "hello", "world")
+    val noSuchCommand = new ExternalProcess(List("eccho", "hello", "world"))
     an[Exception] shouldBe thrownBy {
       noSuchCommand.run()
     }
@@ -74,8 +74,8 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
 
   it should "pipe stdin to stdout" in {
-    val echo = new ExternalProcess("echo", "hello", "world")
-    val wc = new ExternalProcess("wc", "-c")
+    val echo = new ExternalProcess(List("echo", "hello", "world"))
+    val wc = new ExternalProcess(List("wc", "-c"))
     val result = wc.run(stdinput = echo.run().stdout)
     IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
   }

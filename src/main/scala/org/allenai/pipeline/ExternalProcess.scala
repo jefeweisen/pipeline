@@ -24,7 +24,7 @@ import java.util.UUID
   *               They must exist somewhere, but do not need to exist on the local filesystem.
   *               They will be copied into a scratch directory for use by the command
   */
-class ExternalProcess(val commandTokens: CommandToken*) {
+class ExternalProcess(val commandTokens: Seq[CommandToken]) {
 
   def run(inputs: Map[String, () => InputStream] = Map(),
     stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)) = {
@@ -126,7 +126,7 @@ object ExternalProcess {
 
 class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
-    new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
+    new ExternalProcess(commandTokens).run(inputs.mapValues(_.get))
   }
 
   val parameters = inputs.map { case (name, src) => (name, src)}.toList

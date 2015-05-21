@@ -18,16 +18,16 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
   "ExecuteShellCommand" should "return status code" in {
     val testTrue = new ExternalProcess("test", "a", "=", "a")
-    testTrue.run().returnCode should equal(0)
+    testTrue.run(Map()).returnCode should equal(0)
     val testFalse = new ExternalProcess("test", "a", "=", "b")
-    testFalse.run().returnCode should equal(1)
+    testFalse.run(Map()).returnCode should equal(1)
   }
 
   it should "create output files" in {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
     val touchFile =
-      ExternalProcess("touch", OutputFileToken("target"))()
+      ExternalProcess("touch", OutputFileToken("target"))(Map())
         .outputs("target").persisted(StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
@@ -35,18 +35,18 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
   it should "capture stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
-    val stdout = IOUtils.readLines(echo.run().stdout()).asScala.mkString("\n")
+    val stdout = IOUtils.readLines(echo.run(Map()).stdout()).asScala.mkString("\n")
     stdout should equal("hello world")
   }
   it should "capture stderr" in {
     val noSuchParameter = new ExternalProcess("touch", "-x", "foo")
-    val stderr = IOUtils.readLines(noSuchParameter.run().stderr()).asScala.mkString("\n")
+    val stderr = IOUtils.readLines(noSuchParameter.run(Map()).stderr()).asScala.mkString("\n")
     stderr.size should be > 0
   }
   it should "throw an exception if command is not found" in {
     val noSuchCommand = new ExternalProcess("eccho", "hello", "world")
     an[Exception] shouldBe thrownBy {
-      noSuchCommand.run()
+      noSuchCommand.run(Map())
     }
   }
   it should "read input files" in {
@@ -76,7 +76,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   it should "pipe stdin to stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
     val wc = new ExternalProcess("wc", "-c")
-    val result = wc.run(stdinput = echo.run().stdout)
+    val result = wc.run(Map(),stdinput = echo.run(Map()).stdout)
     IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
   }
 }

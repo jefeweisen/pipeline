@@ -26,7 +26,7 @@ import java.util.UUID
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
-  def run(inputs: Map[String, () => InputStream] = Map(),
+  def run(inputs: Map[String, () => InputStream],
     stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)) = {
     {
       val inputNames = inputs.map(_._1).toSet
@@ -113,7 +113,7 @@ object ExternalProcess {
 
   def apply(
     commandTokens: CommandToken*)(
-    inputs: Map[String, Producer[() => InputStream]] /*= Map()*/,
+    inputs: Map[String, Producer[() => InputStream]],
     requireStatusCode: Iterable[Int] = List(0)
     ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name}

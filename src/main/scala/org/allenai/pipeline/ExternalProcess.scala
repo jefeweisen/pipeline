@@ -104,9 +104,16 @@ object ExternalProcess {
 
   case class OutputFileToken(name: String) extends CommandToken
 
+  sealed trait InputValue
+
+  case class InputStreamValue(a : InputStream) extends InputValue
+  case class FileValue(a : () => File) extends InputValue
+
+  class ExternalProcessArgException(s : String) extends Throwable
+
   def apply(
     commandTokens: CommandToken*)(
-    inputs: Map[String, Producer[() => InputStream]] = Map(),
+    inputs: Map[String, Producer[() => InputStream]] /*= Map()*/,
     requireStatusCode: Iterable[Int] = List(0)
     ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name}

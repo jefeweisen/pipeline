@@ -27,8 +27,8 @@ import java.util.UUID
 class ExternalProcess(val commandTokens: CommandToken*) {
 
   def run(
-    inputs: Map[String, () => InputStream],
-    stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)
+    inputs: Map[String, InputValue],
+    stdinput: InputValue = InputStreamValue(() => new ByteArrayInputStream(Array.emptyByteArray))
   ) = {
     {
       val inputNames = inputs.map(_._1).toSet
@@ -66,7 +66,10 @@ class ExternalProcess(val commandTokens: CommandToken*) {
       case OutputFileToken(name) => new File(scratchDir, name).getCanonicalPath
       case t => t.name
     }
-    val status = (cmd #< stdinput()) ! logger
+    val status = stdinput match {
+      case InputStreamValue(s) => cmd #< s() ! logger
+      case _ => throw new RuntimeException("Not implemented")
+    }
     out.close()
     err.close()
 
@@ -108,7 +111,7 @@ object ExternalProcess {
 
   sealed trait InputValue
 
-  case class InputStreamValue(a: InputStream) extends InputValue
+  case class InputStreamValue(a: () => InputStream) extends InputValue
   case class FileValue(a: () => File) extends InputValue
 
   class ExternalProcessArgException(s: String) extends Throwable
@@ -116,7 +119,7 @@ object ExternalProcess {
   def apply(
     commandTokens: CommandToken*
   )(
-    inputs: Map[String, Producer[() => InputStream]],
+    inputs: Map[String, Producer[InputValue]],
     requireStatusCode: Iterable[Int] = List(0)
   ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
@@ -134,9 +137,12 @@ object ExternalProcess {
   }
 }
 
-class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
+class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, Producer[InputValue]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
-    new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
+    new ExternalProcess(commandTokens: _*).run(
+      inputs.mapValues(_.get),
+      InputStreamValue(() => new ByteArrayInputStream(Array.emptyByteArray))
+    )
   }
 
   val parameters = inputs.map { case (name, src) => (name, src) }.toList
@@ -156,16 +162,16 @@ class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, P
 
 class ExtractOutputComponent(
     name: String,
-    f: CommandOutput => () => InputStream,
+    f: CommandOutput => InputValue,
     processCmd: Producer[CommandOutput],
     requireStatusCode: Iterable[Int] = List(0)
-) extends Producer[() => InputStream] {
-  override protected def create: () => InputStream = {
+) extends Producer[InputValue] {
+  override protected def create: InputValue = {
     val result = processCmd.get
     result match {
       case CommandOutput(status, _, _, _) if requireStatusCode.toSet.contains(status) =>
         f(result)
-      case CommandOutput(status, _, stderr, _) =>
+      case CommandOutput(status, _, InputStreamValue(stderr), _) =>
         val stderrString = IOUtils.readLines(stderr()).asScala.take(100)
         sys.error(s"Command ${processCmd.stepInfo.parameters("cmd")} failed with status$status: $stderrString")
     }
@@ -187,16 +193,20 @@ class ExtractOutputComponent(
   }
 }
 
-object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
-  override def read(artifact: FlatArtifact): () => InputStream =
-    () => artifact.read
+object StreamIo extends ArtifactIo[InputValue, FlatArtifact] {
+  override def read(artifact: FlatArtifact): InputValue =
+    InputStreamValue(() => artifact.read)
 
-  override def write(data: () => InputStream, artifact: FlatArtifact): Unit = {
+  override def write(data: InputValue, artifact: FlatArtifact): Unit = {
     artifact.write { writer =>
       val buffer = new Array[Byte](16384)
-      Resource.using(data()) { is =>
-        Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
-          writer.write(buffer, 0, n))
+      data match {
+        case InputStreamValue(s) =>
+          Resource.using(s()) { is =>
+            Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
+              writer.write(buffer, 0, n))
+          }
+        case _ => throw new RuntimeException("Not implemented")
       }
     }
   }
@@ -208,8 +218,8 @@ object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
   * Appropriate for: data in which the URL uniquely determines the content
   */
 object StaticResource {
-  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+  def apply[A <: FlatArtifact](artifact: A): Producer[InputValue] =
+    new Producer[InputValue] with Ai2SimpleStepInfo {
       override def create = StreamIo.read(artifact)
 
       override def stepInfo =
@@ -225,8 +235,8 @@ object StaticResource {
   * Appropriate for: scripts, local resources used during development
   */
 object DynamicResource {
-  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+  def apply[A <: FlatArtifact](artifact: A): Producer[InputValue] =
+    new Producer[InputValue] with Ai2SimpleStepInfo {
       lazy val contentHash = {
         var hash = 0L
         val buffer = new Array[Byte](16384)
@@ -252,8 +262,8 @@ object DynamicResource {
   * Appropriate for: non-deterministic queries
   */
 object VolatileResource {
-  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+  def apply[A <: FlatArtifact](artifact: A): Producer[InputValue] =
+    new Producer[InputValue] with Ai2SimpleStepInfo {
       override def create = StreamIo.read(artifact)
 
       override def stepInfo =
@@ -264,11 +274,11 @@ object VolatileResource {
     }
 }
 
-case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
+case class CommandOutput(returnCode: Int, stdout: InputValue, stderr: InputValue, outputs: Map[String, InputValue])
 
 case class CommandOutputComponents(
-  stdout: Producer[() => InputStream],
-  stderr: Producer[() => InputStream],
-  outputs: Map[String, Producer[() => InputStream]]
+  stdout: Producer[InputValue],
+  stderr: Producer[InputValue],
+  outputs: Map[String, Producer[InputValue]]
 )
 

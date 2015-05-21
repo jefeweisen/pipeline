@@ -1,9 +1,10 @@
 package org.allenai.pipeline
 
-import java.io.{ FileWriter, PrintWriter, File }
+import java.io.{ InputStream, FileWriter, PrintWriter, File }
 
 import org.allenai.common.Resource
 import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
+import org.allenai.pipeline.ExternalProcess.{ InputStreamValue, InputValue }
 import org.allenai.pipeline.IoHelpers.Read
 import org.apache.commons.io.IOUtils
 import scala.collection.JavaConverters._
@@ -35,12 +36,17 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
   it should "capture stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
-    val stdout = IOUtils.readLines(echo.run(Map()).stdout()).asScala.mkString("\n")
+    val stdout = IOUtils.readLines(
+      TestExternalProcess.streamOrThrow(echo.run(Map()).stdout)
+    ).asScala.mkString("\n")
+
     stdout should equal("hello world")
   }
   it should "capture stderr" in {
     val noSuchParameter = new ExternalProcess("touch", "-x", "foo")
-    val stderr = IOUtils.readLines(noSuchParameter.run(Map()).stderr()).asScala.mkString("\n")
+    val stderr = IOUtils.readLines(
+      TestExternalProcess.streamOrThrow(noSuchParameter.run(Map()).stderr)
+    ).asScala.mkString("\n")
     stderr.size should be > 0
   }
   it should "throw an exception if command is not found" in {
@@ -77,6 +83,18 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val echo = new ExternalProcess("echo", "hello", "world")
     val wc = new ExternalProcess("wc", "-c")
     val result = wc.run(Map(), stdinput = echo.run(Map()).stdout)
-    IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
+    IOUtils.readLines(
+      TestExternalProcess.streamOrThrow(result.stdout)
+    ).asScala.head.trim().toInt should equal(11)
+  }
+}
+
+object TestExternalProcess {
+  import ExternalProcess._
+  def streamOrThrow(x: InputValue): InputStream = {
+    x match {
+      case InputStreamValue(a: (() => InputStream)) => a()
+      case _ => throw new RuntimeException("Not implemented")
+    }
   }
 }

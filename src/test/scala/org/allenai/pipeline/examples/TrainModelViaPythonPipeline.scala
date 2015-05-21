@@ -17,20 +17,20 @@ object TrainModelViaPythonPipeline extends App {
 
   // Invoke an external Python process to train a model
   val trainModel =
-    ExternalProcess(
+    ExternalProcess(List(
       "python",
       InputFileToken("script"),
       OutputFileToken("modelFile"),
       "-data",
       InputFileToken("trainingData")
-      )(inputs =
+      ))(inputs =
       Map("trainingData" -> trainData, "script" -> new FileArtifact(new File(inputDir, "trainModel.py"))))
 
   // Capture the output of the process and persist it
   val modelFile = pipeline.persist(trainModel.outputs("modelFile"), StreamIo)
 
   val measureModel =
-    ExternalProcess(
+    ExternalProcess(List(
       "python",
       InputFileToken("script"),
       OutputFileToken("prFile"),
@@ -38,7 +38,7 @@ object TrainModelViaPythonPipeline extends App {
       InputFileToken("modelFile"),
       "-data",
       InputFileToken("testDataFile")
-    )(inputs = Map("script" -> new FileArtifact(new File(inputDir, "scoreModel.py")),
+    ))(inputs = Map("script" -> new FileArtifact(new File(inputDir, "scoreModel.py")),
       "modelFile" -> modelFile,
       "testDataFile" -> testData))
 

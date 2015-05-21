@@ -105,7 +105,7 @@ object ExternalProcess {
   case class OutputFileToken(name: String) extends CommandToken
 
   def apply(
-    commandTokens: CommandToken*)(
+    commandTokens: Seq[CommandToken])(
     inputs: Map[String, Producer[() => InputStream]] = Map(),
     requireStatusCode: Iterable[Int] = List(0)
     ): CommandOutputComponents = {

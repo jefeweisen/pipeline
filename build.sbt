@@ -17,6 +17,11 @@ val spark = Project(
   base = file("spark")
 ).dependsOn(core, s3)
 
+val contrib = Project(
+  id = "contrib",
+  base = file("contrib")
+).dependsOn(core)
+
 organization := "org.allenai"
 crossScalaVersions := Seq("2.11.5")
 scalaVersion <<= crossScalaVersions { (vs: Seq[String]) => vs.head }

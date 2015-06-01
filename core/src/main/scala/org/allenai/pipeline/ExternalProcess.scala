@@ -9,6 +9,7 @@ import org.allenai.pipeline.ExternalProcess._
 import org.apache.commons.io.{ FileUtils, IOUtils }
 
 import scala.collection.JavaConverters._
+import scala.io.Source
 
 /** Executes an arbitrary system process
   * @param commandTokens   The set of tokens that comprise the command to be executed.
@@ -334,3 +335,32 @@ case class CommandOutputComponents(
   outputs: Map[String, Producer[() => InputStream]]
 )
 
+
+// Wow this is complicated.
+case class ReadStreamContents(f: Producer[() => InputStream])
+  extends Producer[Iterable[String]] with Ai2StepInfo {
+  override def create = {
+    //This is
+    // - just like pipeline.spark.ReadStreamContents, but
+    //   with RDD removed
+    // - just like LineCollectionIo.text[String].read(), but
+    //   without the opening FlatArtifact.read
+    StreamClosingIterator(f.get()) {
+      is => Source.fromInputStream(is).getLines
+    }
+  }.toIterable
+}
+
+case class JoinStream(is: Producer[Iterable[String]])
+  extends Producer[() => InputStream] with Ai2StepInfo {
+  import org.allenai.pipeline.IoHelpers._
+
+  override def create = {
+    () =>
+      // TODO: avoid creation of temp file
+      val fTemp = Files.createTempFile("joinstream","txt").toFile
+      val fa = new FileArtifact(fTemp)
+      val f = LineCollectionIo.text[String].write(is.get, fa)
+      fa.read
+  }
+}

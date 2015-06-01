@@ -1,5 +1,7 @@
 package org.allenai.pipeline.contrib
 
+import org.allenai.pipeline.Producer
+
 import scala.reflect.ClassTag
 import scala.util.hashing.MurmurHash3
 
@@ -62,5 +64,21 @@ object SamplingUtils {
       }
       reservoir
     }
+  }
+  case class RandomlySample[T:ClassTag](
+    val input: Producer[Iterator[T]],
+    val k: Int,
+    val seed: Long) extends Producer[Iterator[T]] with org.allenai.pipeline.Ai2SimpleStepInfo
+  {
+    override protected def create: Iterator[T] =
+      reservoirSample[T](input.get, k, seed).toIterator
+  }
+  case class RandomlySample2[T:ClassTag](
+                                         val input: Producer[Iterable[T]],
+                                         val k: Int,
+                                         val seed: Long) extends Producer[Iterable[T]] with org.allenai.pipeline.Ai2SimpleStepInfo
+  {
+    override protected def create: Iterable[T] =
+      reservoirSample[T](input.get.iterator, k, seed)
   }
 }

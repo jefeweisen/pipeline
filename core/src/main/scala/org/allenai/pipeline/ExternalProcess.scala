@@ -337,7 +337,7 @@ case class CommandOutputComponents(
 
 
 // Wow this is complicated.
-case class ReadStreamContents(f: Producer[() => InputStream])
+case class IterableFromStream(f: Producer[() => InputStream])
   extends Producer[Iterable[String]] with Ai2StepInfo {
   override def create = {
     //This is
@@ -351,7 +351,7 @@ case class ReadStreamContents(f: Producer[() => InputStream])
   }.toIterable
 }
 
-case class JoinStream(is: Producer[Iterable[String]])
+case class StreamFromIterable(is: Producer[Iterable[String]])
   extends Producer[() => InputStream] with Ai2StepInfo {
   import org.allenai.pipeline.IoHelpers._
 

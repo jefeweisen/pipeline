@@ -74,9 +74,9 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
     // This is less complicated
     val sampled =
-        JoinStream(
+        StreamFromIterable(
           SamplingUtils.RandomlySample2(
-            ReadStreamContents(outputSeries),
+            IterableFromStream(outputSeries),
             100,
             137
           ))

@@ -19,6 +19,8 @@ import scala.util.Random
 class TestReservoirWithPersistPipeline extends UnitSpec
 with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
+  import ExternalProcess._
+
   val inputDir = new File("src/test/resources/pipeline")
   val outputDataDir = new File(scratchDir, "data")
 
@@ -32,7 +34,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
       )
   }
 
-  def cat_to_sh(in: Producer[Extarg]) = {
+  def cat_to_sh(in: Extarg) = {
     val script = new File(inputDir, "bash/cat_to.sh")
     RunExternalProcess(
       "bash", script.getAbsolutePath(), "cat", OutputFileToken("output"),
@@ -67,35 +69,34 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
     assert(len >= 10)
   }
 
-  def series_to_sh_10_sampled: Producer[Extarg] = {
+  def series_to_sh_10_sampled: Producer[() => InputStream] = {
     val outputSeries: Producer[() => InputStream] = series_sh_10(10)
 
-    // This is complicated
+    // This is less complicated
     val sampled =
-      Producer.fromMemory(
-        ExtargStream(
-          JoinStream(
-            SamplingUtils.RandomlySample2(
-              ReadStreamContents(outputSeries),
-              100,
-              137
-            )).get).asInstanceOf[Extarg])
+        JoinStream(
+          SamplingUtils.RandomlySample2(
+            ReadStreamContents(outputSeries),
+            100,
+            137
+          ))
+
     sampled
   }
 
   "RandomlySample2" should "produce five rows with at least one byte" in {
     val pipeline = Pipeline(scratchDir) // TODO: outputDataDir?
 
-    val sampled: Producer[Extarg] = series_to_sh_10_sampled
+    val sampled: Producer[() => InputStream] = series_to_sh_10_sampled
   
   }
 
   "Test Reservoir with .persist" should "complete" in {
     val pipeline = Pipeline(scratchDir) // TODO: outputDataDir?
 
-    val sampled: Producer[Extarg] = series_to_sh_10_sampled
+    val sampled: Producer[() => InputStream] = series_to_sh_10_sampled
 
-    val procCapture = cat_to_sh(sampled)
+    val procCapture = cat_to_sh(ExtargStream(sampled))
     val outputCapture = procCapture.outputs("output")
 
     pipeline.persist(

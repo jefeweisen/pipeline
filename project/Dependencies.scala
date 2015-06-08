@@ -7,6 +7,7 @@ object Dependencies extends CoreDependencies {
   val awsJavaSdk = "com.amazonaws" % "aws-java-sdk" % "1.8.9.1"
   val scalaReflection = "org.scala-lang" % "scala-reflect" % "2.11.5"
   val commonsIO = "commons-io" % "commons-io" % "2.4"
+  val apacheCommonsCodec = "org.apache.directory.studio" % "org.apache.commons.codec" % "1.8"
   val ai2Common = allenAiCommon exclude ("org.allenai", "pipeline")
   val sparkCore = "org.apache.spark" %% "spark-core" % "1.2.0" % "provided" excludeAll (
     ExclusionRule(organization = "org.slf4j", name = "slf4j-log4j12")

@@ -427,6 +427,30 @@ object VolatileResource {
     }
 }
 
+case class HashedResource(val artifact: FlatArtifact, lastKnownHash:String = "")
+  extends Producer[() => InputStream] with Ai2SimpleStepInfo
+{
+    lazy val contentHash : String = {
+      /*
+      val md : java.security.MessageDigest = java.security.MessageDigest.getInstance("SHA-1");
+      md.reset()
+      md.update() */
+      Resource.using(artifact.read) { is =>
+        org.apache.commons.codec.digest.DigestUtils.sha1Hex(is)
+      }
+    }
+
+    override def create = StreamIo.read(artifact)
+
+    override def stepInfo = {
+      // TODO check contentHash, find way to display warning
+      super.stepInfo.addParameters("contentHash" -> contentHash)
+        .copy(className = "DynamicResource")
+        .copy(outputLocation = Some(artifact.url))
+    }
+}
+
+
 // for RunExternalProcess
 case class CommandOutputComponents(
   stdout: Producer[() => InputStream],

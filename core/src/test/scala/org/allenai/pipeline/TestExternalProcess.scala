@@ -166,6 +166,48 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     Workflow.upstreamDependencies(copy).size should equal(2)
   }
 
+  "HashedResource content hash" should "survive relocation" in {
+    val (hr1,hr2) = CreateTwoForHashTestReloc(scratchDir)
+    hr1.contentHash should equal(hr2.contentHash)
+  }
+
+  "HashedResource signature" should "survive relocation" in {
+    val (hr1,hr2) = CreateTwoForHashTestReloc(scratchDir)
+    hr1.stepInfo.signature.id should equal(hr2.stepInfo.signature.id)
+  }
+
+  def CreateTwoForHashTestReloc(scratchdir:File) = {
+    val f1 = CreateFileForHashTestLoc(scratchDir, "testHashLoc1", "input", "Some data")
+    val hr1 = HashedResource(new FileArtifact(f1),"")
+    val f2 = CreateFileForHashTestLoc(scratchDir, "testHashLoc2", "input", "Some data")
+    val hr2 = HashedResource(new FileArtifact(f2),"")
+    (hr1,hr2)
+  }
+
+  "HashedResource signature" should "vary by content" in {
+    val f1 = CreateFileForHashTestLoc(scratchDir, "testHashLoc1", "input", "roll")
+    val hr1 = HashedResource(new FileArtifact(f1),"")
+    val f2 = CreateFileForHashTestLoc(scratchDir, "testHashLoc2", "input", "role")
+    val hr2 = HashedResource(new FileArtifact(f2),"")
+    hr1.stepInfo.signature.id should not equal(hr2.stepInfo.signature.id)
+  }
+
+  "HashedResource content hash" should "compute like *nix shasum/sha1sum" in {
+    val f1 = CreateFileForHashTestLoc(scratchDir, "testHash1", "input", "hello")
+    val hr1 = HashedResource(new FileArtifact(f1),"")
+    hr1.contentHash should equal("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")
+  }
+
+  def CreateFileForHashTestLoc(scratchDir : File, rdir:String, rfile:String, data:String): File = {
+    val dir = new File(scratchDir, rdir)
+    dir.mkdirs()
+    val inputFile = new File(dir, rfile)
+    Resource.using(new PrintWriter(new FileWriter(inputFile))) {
+      _.println(data)
+    }
+    inputFile
+  }
+
   it should "pipe stdin to stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
     val wc = new ExternalProcess("wc", "-c")

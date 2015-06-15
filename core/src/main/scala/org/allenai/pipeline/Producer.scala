@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import org.allenai.common.{ Logging, Timing }
+import org.allenai.common.{Resource, Logging, Timing}
 
 import scala.concurrent.duration.Duration
 
@@ -161,12 +161,22 @@ class ProducerWithPersistence[T, A <: Artifact](
 ) extends PersistedProducer[T, A] {
   self =>
 
+  def writeSignature(result:Producer[T]): Unit = {
+    val stIs = result.stepInfo.signature.infoString
+    // hack: how do I recreate something on the same store as this.artifact?
+    val path = artifact.url.getPath()+".signature"
+    Resource.using(new java.io.PrintWriter(new java.io.FileWriter(path))) {
+      _.println(stIs)
+    }
+  }
+
   def create: T = {
     val className = stepInfo.className
     if (!artifact.exists) {
       val result = original.get
       executionMode = ExecutedAndPersisted
       logger.debug(s"$className writing to $artifact using $io")
+      writeSignature(original)
       io.write(result, artifact)
       if (result.isInstanceOf[Iterator[_]]) {
         executionMode = ExecuteAndBufferStream

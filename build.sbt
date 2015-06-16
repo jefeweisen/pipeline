@@ -12,15 +12,18 @@ val s3 = Project(
   base = file("s3")
 ).dependsOn(core)
 
+
 val spark = Project(
   id = "spark",
   base = file("spark")
 ).dependsOn(core, s3)
 
+
 val contrib = Project(
   id = "contrib",
   base = file("contrib")
 ).dependsOn(core)
+
 
 organization := "org.allenai"
 crossScalaVersions := Seq("2.11.5")
@@ -45,6 +48,7 @@ pomExtra := (
 
 // Enable the LibraryPlugin for release workflow support
 enablePlugins(LibraryPlugin)
-PublishTo.ai2Public
+//PublishTo.ai2Public
+
 
 dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5"

@@ -9,6 +9,7 @@ import java.net.URI
 /** Created by rodneykinney on 5/22/15.
   */
 object CreateCoreArtifacts {
+  // exo 1
   // Create a FlatArtifact or StructuredArtifact from an absolute s3:// URL
   def fromS3Urls(credentials: => S3Credentials) = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {

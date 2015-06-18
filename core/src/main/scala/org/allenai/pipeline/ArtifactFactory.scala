@@ -66,13 +66,14 @@ trait UrlToArtifact {
     *         be created from the given URL
     */
   def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A]
+  // exo
 }
 
 object UrlToArtifact {
   // Chain together a series of UrlToArtifact instances
   // The result will be a UrlToArtifact that supports creation of the union of Artifact types and input URLs
   // that are supported by the individual inputs
-  def chain(first: UrlToArtifact, second: UrlToArtifact, others: UrlToArtifact*) =
+  def chain(first: UrlToArtifact, second: UrlToArtifact, others: UrlToArtifact*) = // exo
     new UrlToArtifact {
       override def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
         var fn = first.urlToArtifact[A] orElse second.urlToArtifact[A]
@@ -86,37 +87,45 @@ object UrlToArtifact {
   object Empty extends UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] =
       PartialFunction.empty[URI, A]
+    // exo
   }
 
 }
 
 object CreateCoreArtifacts {
+  // exo 1
   // Create a FlatArtifact or StructuredArtifact from an absolute file:// URL
-  val fromFileUrls: UrlToArtifact = new UrlToArtifact {
+  val fromFileUrls: UrlToArtifact = fromFileUrls2(new URI("file:///"))
+  def fromFileUrls2(urlHead:URI): UrlToArtifact = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
         case url if c.isAssignableFrom(classOf[FileArtifact])
-          && "file" == url.getScheme =>
+          && "file" == url.getScheme
+          && url.getPath().startsWith(urlHead.getPath()) =>
           new FileArtifact(new File(url)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[FileArtifact])
-          && null == url.getScheme =>
+          && null == url.getScheme =>  //TODO: delete?
           new FileArtifact(new File(url.getPath)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[DirectoryArtifact])
           && "file" == url.getScheme
+          && url.getPath().startsWith(urlHead.getPath())
           && new File(url).exists
           && new File(url).isDirectory =>
           new DirectoryArtifact(new File(url)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[DirectoryArtifact])
-          && null == url.getScheme
+          && null == url.getScheme      // TODO: delete?
+          && url.getPath().startsWith(urlHead.getPath())
           && new File(url.getPath).exists
           && new File(url.getPath).isDirectory =>
           new DirectoryArtifact(new File(url.getPath)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[ZipFileArtifact])
-          && "file" == url.getScheme =>
+          && "file" == url.getScheme
+          && url.getPath().startsWith(urlHead.getPath()) =>
           new ZipFileArtifact(new File(url)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[ZipFileArtifact])
-          && null == url.getScheme =>
+          && null == url.getScheme
+          && url.getPath().startsWith(urlHead.getPath()) =>
           new ZipFileArtifact(new File(url.getPath)).asInstanceOf[A]
       }
       fn

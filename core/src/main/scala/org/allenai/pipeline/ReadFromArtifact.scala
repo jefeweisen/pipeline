@@ -14,5 +14,5 @@ case class ReadFromArtifact[T, A <: Artifact](
     reader.stepInfo.copy(
       outputLocation = Some(artifact.url)
     )
-      .addParameters("src" -> artifact.url)
+      .addParameters("src" -> artifact.url)  // exo
 }

@@ -362,7 +362,7 @@ object StaticResource {
       override def stepInfo =
         super.stepInfo.copy(className = "StaticResource")
           .copy(outputLocation = Some(artifact.url))
-          .addParameters("src" -> artifact.url)
+          .addParameters("src" -> artifact.url)  // exo
     }
 }
 
@@ -377,7 +377,7 @@ object VersionedResource {
           classVersion = version
         )
           .copy(outputLocation = Some(artifact.url))
-          .addParameters("src" -> artifact.url)
+          .addParameters("src" -> artifact.url)  // exo
     }
 }
 
@@ -405,7 +405,7 @@ object DynamicResource {
         super.stepInfo.addParameters("contentHash" -> contentHash)
           .copy(className = "DynamicResource")
           .copy(outputLocation = Some(artifact.url))
-          .addParameters("src" -> artifact.url)
+          .addParameters("src" -> artifact.url)  // exo
 
     }
 }
@@ -422,7 +422,7 @@ object VolatileResource {
         super.stepInfo.addParameters("guid" -> UUID.randomUUID().toString)
           .copy(className = "VolatileResource")
           .copy(outputLocation = Some(artifact.url))
-          .addParameters("src" -> artifact.url)
+          .addParameters("src" -> artifact.url) // exo
     }
 }
 

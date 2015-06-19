@@ -8,6 +8,17 @@ import java.io._
 import java.net.URI
 import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
 
+// RK: we don't need to ever parse these urls
+// RK: the only place we parse urls if they are used as part of a rootOutputUrl configuring a pipeline.
+
+class BoxArtifact(val prefix: File, val path: String) extends FileArtifact(new File(prefix, path)) {
+  override def url: URI = {
+    new URI(s"box://$path")
+  }
+}
+// RK: ok to lexically reference BoxArtifact directly in paths because we're only using
+// it for exogenous data, not as pipeline output.
+
 /** Flat file.  */
 class FileArtifact(val file: File) extends FlatArtifact {
   private val parentDir = {

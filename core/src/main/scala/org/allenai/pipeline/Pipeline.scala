@@ -13,6 +13,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 
 import scala.reflect.ClassTag
+import scala.util.DynamicVariable
 import scala.util.control.NonFatal
 
 /** A top-level data flow pipeline.
@@ -26,7 +27,9 @@ trait Pipeline extends Logging {
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
   def run(title: String) = {
-    runPipelineReturnResults(title, persistedSteps)
+    Pipeline.Keys.isDiscovering.withValue(true) {
+      runPipelineReturnResults(title, persistedSteps)
+    }
   }
 
   def persistedSteps = steps.toMap
@@ -277,6 +280,10 @@ trait Pipeline extends Logging {
 }
 
 object Pipeline {
+  object Keys {
+    val isDiscovering = new DynamicVariable[Boolean](false);
+    val isRunning = new DynamicVariable[Boolean](false);
+  }
   // Create a Pipeline that writes output to the given directory
   def apply(rootDir: File) =
     new Pipeline {
@@ -306,6 +313,11 @@ trait ConfiguredPipeline extends Pipeline {
     }
 
   override def run(rawTitle: String) = {
+    Pipeline.Keys.isDiscovering.withValue(true) {
+      runI(rawTitle);
+    }
+  }
+  private def runI(rawTitle: String) = {
     val (targets, isRunOnly) =
       getStringList("runOnly") match {
         case seq if seq.nonEmpty =>
@@ -329,7 +341,11 @@ trait ConfiguredPipeline extends Pipeline {
         if (isRunOnly) {
           runOnly(rawTitle, targets)
         } else {
-          runPipelineReturnResults(rawTitle, targets)
+          Pipeline.Keys.isDiscovering.withValue(false) {
+            Pipeline.Keys.isRunning.withValue(true) {
+              runPipelineReturnResults(rawTitle, targets)
+            }
+          }
         }
     }
   }

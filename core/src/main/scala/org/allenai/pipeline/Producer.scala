@@ -28,6 +28,8 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
 
   /** Return the computed value. */
   def get: T = {
+    if (!Pipeline.Keys.isRunning.value)
+      logger.error(s"Calling get during discovery time")
     val className = stepInfo.className
     val returnValue =
       if (!cachingEnabled) {

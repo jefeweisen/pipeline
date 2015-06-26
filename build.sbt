@@ -25,6 +25,13 @@ val contrib = Project(
 ).dependsOn(core)
 
 
+val examples = Project(
+  id = "examples",
+  base = file("examples")
+).dependsOn(core, s3)
+
+
+
 organization := "org.allenai"
 crossScalaVersions := Seq("2.11.5")
 scalaVersion <<= crossScalaVersions { (vs: Seq[String]) => vs.head }

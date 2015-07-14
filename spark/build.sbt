@@ -3,6 +3,8 @@ import Dependencies._
 name := "pipeline-spark"
 organization := "org.allenai"
 
+test in assembly := {}
+
 StylePlugin.enableLineLimit := false
 
 dependencyOverrides += "commons-codec" % "commons-codec" % "1.6"

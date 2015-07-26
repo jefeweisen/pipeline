@@ -25,7 +25,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     case (nodeId, node) => node.outputMissing
   }
 
-  lazy val renderHtml: String = {
+  def renderHtml(rdirPipelineOutput: URI): String = {
     import Workflow._
     //    val w = this
     val sources = sourceNodes()
@@ -34,7 +34,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
       (id, info) <- nodes.toList.sortBy(_._2.stepName)
-      path <- info.outputLocation
+      path <- info.relOutputLocation.map(rdirPipelineOutput.resolve(_))
     } yield {
       s"""<a href="$path">${info.stepName}</a>"""
     }
@@ -50,7 +50,8 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
           // An optional link to the source data.
           info.srcUrl.map(uri => s"""new Link(${link(uri).toJson},${(if (info.classVersion.nonEmpty) info.classVersion else "src").toJson})""") ++ // scalastyle:ignore
             // An optional link to the output data.
-            info.outputLocation.map(uri => s"""new Link(${link(uri).toJson},"output")""")
+            info.relOutputLocation.map((uri: URI) =>
+              s"""new Link(${link(rdirPipelineOutput.resolve(uri)).toJson},"output")""")
         val linksJson = links.mkString("[", ",", "]")
         val clazz = sources match {
           case _ if errors contains id => "errorNode"
@@ -95,13 +96,13 @@ case class Node(
   binaryUrl: Option[URI] = None,
   parameters: Map[String, String] = Map(),
   description: Option[String] = None,
-  outputLocation: Option[URI] = None,
+  relOutputLocation: Option[URI] = None,
   outputMissing: Boolean = false,
   executionInfo: String = ""
 )
 
 object Node {
-  def apply(stepName: String, step: PipelineStep): Node = {
+  def apply(stepName: String, step: PipelineStep, rootOutputUrl: URI): Node = {
     val stepInfo = step.stepInfo
     val outputMissing = step match {
       case persisted: PersistedProducer[_, _] =>
@@ -112,6 +113,7 @@ object Node {
       case producer: Producer[_] => producer.executionInfo.status
       case _ => ""
     }
+    val relOutputLocation = stepInfo.outputLocation.map(Workflow.Relativize(rootOutputUrl, _))
     Node(
       stepName,
       stepInfo.className,
@@ -120,7 +122,7 @@ object Node {
       stepInfo.binaryUrl,
       stepInfo.parameters,
       stepInfo.description,
-      stepInfo.outputLocation,
+      relOutputLocation,
       outputMissing,
       executionInfo
     )
@@ -131,7 +133,8 @@ object Node {
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: Iterable[(String, PipelineStep)]): Workflow = {
+  def forPipeline(steps: Iterable[(String, PipelineStep)], rootOutputUrl: URI): Workflow = {
+    val rootOutputUrl1: URI = URIWithSchema(rootOutputUrl)
     val idToName = steps.map { case (k, v) => (v.stepInfo.signature.id, k) }.toMap
     def findNodes(s: PipelineStep): Iterable[PipelineStep] =
       Seq(s) ++ s.stepInfo.dependencies.flatMap {
@@ -145,7 +148,7 @@ object Workflow {
     } yield {
       val id = childStep.stepInfo.signature.id
       val childName = idToName.getOrElse(id, childStep.stepInfo.className)
-      (id, Node(childName, childStep))
+      (id, Node(childName, childStep, rootOutputUrl1))
     }
 
     def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
@@ -159,6 +162,30 @@ object Workflow {
       (from, to, name) <- findLinks(step.stepInfo)
     } yield Link(from.signature.id, to.signature.id, name)).toSet
     Workflow(nodes, links)
+  }
+
+  def Relativize(uri: URI, rootOutputUrl: URI): URI = {
+    val rootOutputWithSchema = Workflow.URIWithSchema(rootOutputUrl)
+    /* The function org.allenai.pipeline.ArtifactFactory#createArtifact
+     * adds "file://" schema to pipeline outputs.  If rootOutputUrl has
+     * no schema prefix, then java.net.URI.relativize will always
+     * decline to relativize pipeline outputs.  We use URIWithSchema to
+     * get the paths to match.
+     */
+    uri.relativize(rootOutputWithSchema)
+  }
+
+  def URIWithSchema(uri: URI): URI = {
+    uri.getScheme() match {
+      case null =>
+        new URI(
+          "file",
+          uri.getHost,
+          uri.getPath(),
+          uri.getFragment
+        )
+      case _ => uri
+    }
   }
 
   def upstreamDependencies(step: PipelineStep): Set[PipelineStep] = {

@@ -242,8 +242,13 @@ trait Pipeline extends Logging {
     val htmlArtifact = artifactFactory.createArtifact[FlatArtifact](rootOutputReportUrl, s"$title-$today.html")
     // was ../:
     //SingletonIo.text[String].write(workflow.renderHtml(new URI("./")), htmlArtifact)
-    val relURI = Workflow.Relativize(rootOutputReportUrl, rootOutputDataUrl)
-    SingletonIo.text[String].write(workflow.renderHtml(relURI), htmlArtifact)
+    val localOutputDataUrl =
+      Workflow.Relativize2dirs(rootOutputReportUrl, rootOutputDataUrl) match {
+        case Some(uriRel) => uriRel
+        case None => rootOutputDataUrl
+      }
+
+    SingletonIo.text[String].write(workflow.renderHtml(localOutputDataUrl), htmlArtifact)
 
     val signatureArtifact = artifactFactory.createArtifact[FlatArtifact](rootOutputReportUrl, s"$title-$today.signatures.json")
     val signatureFormat = Signature.jsonWriter

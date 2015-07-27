@@ -34,7 +34,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
       (id, info) <- nodes.toList.sortBy(_._2.stepName)
-      path <- info.relOutputLocation.map(rdirPipelineOutput.resolve(_))
+      path <- info.relOutputLocation.map(rdirPipelineOutput.resolve(_))  // TODO: try removing this.  it might be redundant.
     } yield {
       s"""<a href="$path">${info.stepName}</a>"""
     }
@@ -51,7 +51,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
           info.srcUrl.map(uri => s"""new Link(${link(uri).toJson},${(if (info.classVersion.nonEmpty) info.classVersion else "src").toJson})""") ++ // scalastyle:ignore
             // An optional link to the output data.
             info.relOutputLocation.map((uri: URI) =>
-              s"""new Link(${link(rdirPipelineOutput.resolve(uri)).toJson},"output")""")
+              s"""new Link(${link(rdirPipelineOutput.resolve(uri)).toJson},"output")""") // TODO: try remove
         val linksJson = links.mkString("[", ",", "]")
         val clazz = sources match {
           case _ if errors contains id => "errorNode"
@@ -162,6 +162,41 @@ object Workflow {
       (from, to, name) <- findLinks(step.stepInfo)
     } yield Link(from.signature.id, to.signature.id, name)).toSet
     Workflow(nodes, links)
+  }
+
+  /** Computes an address for "a" relative to "b" */
+  def Relativize2dirs(a: URI, b: URI) : Option[URI] = {
+    if(a.getScheme() != b.getScheme())
+      None
+    else {
+      val a2 = EnsureSlash(a)
+      val b2 = EnsureSlash(b)
+      val c1 = (a2.getPath()).zip(b.getPath()).takeWhile{case ((x:Char),(y:Char)) => x==y }.map{case (x:Char,_) => x}
+      val c2 = c1.reverse.takeWhile(ch => ch != '/')
+      val c3 = c1.dropRight(c2.length).mkString
+      val root = new URI(a.getScheme(), a.getHost, c3, a.getFragment())
+      val a3 = a2.relativize(root)
+      val numB = b2.getPath().count(ch => ch == '/')
+      val numRoot = root.getPath().count(ch => ch == '/')
+      val numUp = numB - numRoot
+      // What if c3 (aka root.getPath()) is very short, e.g. "/"?
+      if(numRoot <= 2)
+        None
+      else {
+        // method 2:
+        //val b3 = a2.relativize(root)
+        //val numUp = b3.getPath().count(ch => ch == '/')
+        val rdirUp = (1 to numUp).map("../").mkString("")
+        new URI(rdirUp).resolve(a3)
+      }
+    }
+  }
+
+  def EnsureSlash(a:URI): URI = {
+    if(a.getPath().takeRight(1)=="/")
+      a
+    else
+      new URI(a.getScheme(), a.getHost, a.getPath+"/", a.getFragment())
   }
 
   def Relativize(uri: URI, rootOutputUrl: URI): URI = {
